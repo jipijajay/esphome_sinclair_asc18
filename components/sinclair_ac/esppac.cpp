@@ -12,10 +12,7 @@ climate::ClimateTraits SinclairAC::traits()
 {
     auto traits = climate::ClimateTraits();
 
-    traits.set_supports_action(false);
-
-    traits.set_supports_current_temperature(true);
-    traits.set_supports_two_point_target_temperature(false);
+    traits.add_feature_flags(climate::CLIMATE_SUPPORTS_CURRENT_TEMPERATURE);
     traits.set_visual_min_temperature(MIN_TEMPERATURE);
     traits.set_visual_max_temperature(MAX_TEMPERATURE);
     traits.set_visual_temperature_step(TEMPERATURE_STEP);
@@ -137,7 +134,7 @@ void SinclairAC::update_swing_horizontal(const std::string &swing)
     this->horizontal_swing_state_ = swing;
 
     if (this->horizontal_swing_select_ != nullptr &&
-        this->horizontal_swing_select_->state != this->horizontal_swing_state_)
+        this->horizontal_swing_select_->current_option() != this->horizontal_swing_state_)
     {
         this->horizontal_swing_select_->publish_state(this->horizontal_swing_state_);
     }
@@ -148,7 +145,7 @@ void SinclairAC::update_swing_vertical(const std::string &swing)
     this->vertical_swing_state_ = swing;
 
     if (this->vertical_swing_select_ != nullptr && 
-        this->vertical_swing_select_->state != this->vertical_swing_state_)
+        this->vertical_swing_select_->current_option() != this->vertical_swing_state_)
     {
         this->vertical_swing_select_->publish_state(this->vertical_swing_state_);
     }
@@ -159,7 +156,7 @@ void SinclairAC::update_display(const std::string &display)
     this->display_state_ = display;
 
     if (this->display_select_ != nullptr && 
-        this->display_select_->state != this->display_state_)
+        this->display_select_->current_option() != this->display_state_)
     {
         this->display_select_->publish_state(this->display_state_);
     }
@@ -170,7 +167,7 @@ void SinclairAC::update_display_unit(const std::string &display_unit)
     this->display_unit_state_ = display_unit;
 
     if (this->display_unit_select_ != nullptr && 
-        this->display_unit_select_->state != this->display_unit_state_)
+        this->display_unit_select_->current_option() != this->display_unit_state_)
     {
         this->display_unit_select_->publish_state(this->display_unit_state_);
     }
@@ -262,7 +259,8 @@ void SinclairAC::set_current_temperature_sensor(sensor::Sensor *current_temperat
 void SinclairAC::set_vertical_swing_select(select::Select *vertical_swing_select)
 {
     this->vertical_swing_select_ = vertical_swing_select;
-    this->vertical_swing_select_->add_on_state_callback([this](const std::string &value, size_t index) {
+    this->vertical_swing_select_->add_on_state_callback([this](size_t index) {
+        auto value = this->vertical_swing_select_->at(index).value();
         if (value == this->vertical_swing_state_)
             return;
         this->on_vertical_swing_change(value);
@@ -272,7 +270,8 @@ void SinclairAC::set_vertical_swing_select(select::Select *vertical_swing_select
 void SinclairAC::set_horizontal_swing_select(select::Select *horizontal_swing_select)
 {
     this->horizontal_swing_select_ = horizontal_swing_select;
-    this->horizontal_swing_select_->add_on_state_callback([this](const std::string &value, size_t index) {
+    this->horizontal_swing_select_->add_on_state_callback([this](size_t index) {
+        auto value = this->horizontal_swing_select_->at(index).value();
         if (value == this->horizontal_swing_state_)
             return;
         this->on_horizontal_swing_change(value);
@@ -282,7 +281,8 @@ void SinclairAC::set_horizontal_swing_select(select::Select *horizontal_swing_se
 void SinclairAC::set_display_select(select::Select *display_select)
 {
     this->display_select_ = display_select;
-    this->display_select_->add_on_state_callback([this](const std::string &value, size_t index) {
+    this->display_select_->add_on_state_callback([this](size_t index) {
+        auto value = this->display_select_->at(index).value();
         if (value == this->display_state_)
             return;
         this->on_display_change(value);
@@ -292,7 +292,8 @@ void SinclairAC::set_display_select(select::Select *display_select)
 void SinclairAC::set_display_unit_select(select::Select *display_unit_select)
 {
     this->display_unit_select_ = display_unit_select;
-    this->display_unit_select_->add_on_state_callback([this](const std::string &value, size_t index) {
+    this->display_unit_select_->add_on_state_callback([this](size_t index) {
+        auto value = this->display_unit_select_->at(index).value();
         if (value == this->display_unit_state_)
             return;
         this->on_display_unit_change(value);
