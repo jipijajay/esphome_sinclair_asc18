@@ -1,5 +1,6 @@
 // based on: https://github.com/DomiStyle/esphome-panasonic-ac
 #include "esppac_cnt.h"
+#include "esphome/core/log.h"
 
 namespace esphome {
 namespace sinclair_ac {
@@ -276,16 +277,16 @@ void SinclairACCNT::send_packet()
     bool    fanTurbo  = false;
     if (this->has_custom_fan_mode())
     {
-        const char* custom_fan_mode = this->get_custom_fan_mode();
+        std::string custom_fan_mode = this->get_custom_fan_mode();
 
-        if (strcmp(custom_fan_mode, fan_modes::FAN_AUTO) == 0)
+        if (custom_fan_mode == fan_modes::FAN_AUTO)
         {
             fanSpeed1 = 0;
             fanSpeed2 = 0;
             fanQuiet  = false;
             fanTurbo  = false;
         }
-        else if (strcmp(custom_fan_mode, fan_modes::FAN_LOW) == 0)
+        else if (custom_fan_mode == fan_modes::FAN_LOW)
         {
             fanSpeed1 = 1;
             fanSpeed2 = 1;
@@ -293,14 +294,14 @@ void SinclairACCNT::send_packet()
             fanTurbo  = false;
             packet[protocol::REPORT_FAN_SPD2_BYTE] |= 1;
         }
-/*        else if (strcmp(custom_fan_mode, fan_modes::FAN_QUIET) == 0)
+/*        else if (custom_fan_mode == fan_modes::FAN_QUIET)
         {
             fanSpeed1 = 1;
             fanSpeed2 = 1;
             fanQuiet  = true;
             fanTurbo  = false;
         } */
-        else if (strcmp(custom_fan_mode, fan_modes::FAN_MED) == 0)
+        else if (custom_fan_mode == fan_modes::FAN_MED)
 	{
             fanSpeed1 = 3;
             fanSpeed2 = 2;
@@ -308,7 +309,7 @@ void SinclairACCNT::send_packet()
             fanTurbo  = false;
 	    packet[protocol::REPORT_FAN_SPD2_BYTE] |= 2;
         }
-        else if (strcmp(custom_fan_mode, fan_modes::FAN_HIGH) == 0)
+        else if (custom_fan_mode == fan_modes::FAN_HIGH)
         {
             fanSpeed1 = 5;
             fanSpeed2 = 3;
@@ -316,7 +317,7 @@ void SinclairACCNT::send_packet()
             fanTurbo  = false;
 	    packet[protocol::REPORT_FAN_SPD2_BYTE] |= 3;
         }
-        else if (strcmp(custom_fan_mode, fan_modes::FAN_TURBO) == 0)
+        else if (custom_fan_mode == fan_modes::FAN_TURBO)
         {
             fanSpeed1 = 5;
             fanSpeed2 = 3;
@@ -701,7 +702,7 @@ bool SinclairACCNT::processUnitReport()
     const char* newFanMode = determine_fan_mode();
     if (this->has_custom_fan_mode())
     {
-        if (strcmp(this->get_custom_fan_mode(), newFanMode) != 0) hasChanged = true;
+        if (this->get_custom_fan_mode() != newFanMode) hasChanged = true;
     }
     else
     {
