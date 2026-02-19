@@ -14,7 +14,7 @@ namespace sinclair_ac {
 
 static const char *const VERSION = "0.0.1";
 
-static const uint8_t READ_TIMEOUT = 20;  // The maximum time to wait before considering a packet complete
+static const uint16_t READ_TIMEOUT = 100;  // The maximum time to wait before considering a packet complete
 
 static const uint8_t MIN_TEMPERATURE = 16;   // Minimum temperature as reported by EWPE SMART APP
 static const uint8_t MAX_TEMPERATURE = 30;   // Maximum temperature as supported by EWPE SMART APP
@@ -82,10 +82,10 @@ typedef enum {
 static const uint8_t DATA_MAX = 200;
 
 typedef struct {
-        std::vector<uint8_t> data;
-        uint8_t data_cnt;
-        uint8_t frame_size;
-        SerialProcessState_t state;
+  std::vector<uint8_t> data;
+  uint8_t frame_size;
+  SerialProcessState_t state;
+  uint32_t last_byte_time;
 } SerialProcess_t;
 
 class SinclairAC : public Component, public uart::UARTDevice, public climate::Climate {
