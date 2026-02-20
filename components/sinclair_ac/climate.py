@@ -131,8 +131,8 @@ async def to_code(config):
     ]
     for conf_key, name, options, setter in selects:
         sel_id = config[conf_key]
-        sel_conf = select.select_schema(SinclairACSelect).validate(
-            {CONF_ID: sel_id, CONF_NAME: name}
+        sel_conf = select.select_schema(SinclairACSelect)(
+            {CONF_ID: sel_id, CONF_NAME: name, "options": options}
         )
         sel_var = await select.new_select(sel_conf, options=options)
         await cg.register_component(sel_var, sel_conf)
@@ -148,7 +148,7 @@ async def to_code(config):
     ]
     for conf_key, name, setter in switches:
         sw_id = config[conf_key]
-        sw_conf = switch.switch_schema(SinclairACSwitch).validate(
+        sw_conf = switch.switch_schema(SinclairACSwitch)(
             {CONF_ID: sw_id, CONF_NAME: name}
         )
         sw_var = await switch.new_switch(sw_conf)
