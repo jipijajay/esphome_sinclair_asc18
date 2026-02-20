@@ -54,5 +54,4 @@ external_components:
 
 climate:
   - platform: sinclair_ac
-    name: ${devicename}
     

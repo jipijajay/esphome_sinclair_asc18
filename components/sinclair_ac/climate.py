@@ -1,6 +1,7 @@
 #based on: https://github.com/DomiStyle/esphome-panasonic-ac
 from esphome.const import (
     CONF_ID,
+    CONF_NAME,
 )
 import esphome.codegen as cg
 import esphome.config_validation as cv
@@ -77,6 +78,7 @@ DISPLAY_UNIT_OPTIONS = [
 
 SCHEMA = climate.climate_schema(climate.Climate).extend(
     {
+        cv.Optional(CONF_NAME, default="climate"): cv.string_strict,
         cv.GenerateID(CONF_HORIZONTAL_SWING_SELECT): cv.declare_id(SinclairACSelect),
         cv.GenerateID(CONF_VERTICAL_SWING_SELECT): cv.declare_id(SinclairACSelect),
         cv.GenerateID(CONF_DISPLAY_SELECT): cv.declare_id(SinclairACSelect),
