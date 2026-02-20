@@ -1,9 +1,6 @@
 #based on: https://github.com/DomiStyle/esphome-panasonic-ac
 from esphome.const import (
-    CONF_DISABLED_BY_DEFAULT,
-    CONF_ENTITY_CATEGORY,
     CONF_ID,
-    CONF_INTERNAL,
     CONF_NAME,
 )
 import esphome.codegen as cg
@@ -111,15 +108,6 @@ async def to_code(config):
     await cg.register_component(var, config)
     await uart.register_uart_device(var, config)
 
-    def make_sub_conf(id, name):
-        return {
-            CONF_ID: id,
-            CONF_NAME: name,
-            CONF_DISABLED_BY_DEFAULT: False,
-            CONF_INTERNAL: False,
-            CONF_ENTITY_CATEGORY: "",
-        }
-
     selects = [
         (
             CONF_HORIZONTAL_SWING_SELECT,
@@ -143,8 +131,11 @@ async def to_code(config):
     ]
     for conf_key, name, options, setter in selects:
         sel_id = config[conf_key]
-        sel_conf = make_sub_conf(sel_id, name)
+        sel_conf = select.select_schema(SinclairACSelect).validate(
+            {CONF_ID: sel_id, CONF_NAME: name}
+        )
         sel_var = await select.new_select(sel_conf, options=options)
+        await cg.register_component(sel_var, sel_conf)
         cg.add(getattr(var, setter)(sel_var))
 
     switches = [
@@ -157,10 +148,11 @@ async def to_code(config):
     ]
     for conf_key, name, setter in switches:
         sw_id = config[conf_key]
-        sw_conf = make_sub_conf(sw_id, name)
-        sw_var = cg.new_Pvariable(sw_id)
+        sw_conf = switch.switch_schema(SinclairACSwitch).validate(
+            {CONF_ID: sw_id, CONF_NAME: name}
+        )
+        sw_var = await switch.new_switch(sw_conf)
         await cg.register_component(sw_var, sw_conf)
-        await switch.register_switch(sw_var, sw_conf)
         cg.add(getattr(var, setter)(sw_var))
 
     if CONF_CURRENT_TEMPERATURE_SENSOR in config:
