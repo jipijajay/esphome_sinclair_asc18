@@ -132,7 +132,7 @@ async def to_code(config):
     for conf_key, name, options, setter in selects:
         sel_id = config[conf_key]
         sel_conf = select.select_schema(SinclairACSelect)(
-            {CONF_ID: sel_id, CONF_NAME: name, "options": options}
+            {CONF_ID: sel_id, CONF_NAME: name}
         )
         sel_var = await select.new_select(sel_conf, options=options)
         await cg.register_component(sel_var, sel_conf)
