@@ -1,6 +1,9 @@
 #based on: https://github.com/DomiStyle/esphome-panasonic-ac
 from esphome.const import (
+    CONF_DISABLED_BY_DEFAULT,
+    CONF_ENTITY_CATEGORY,
     CONF_ID,
+    CONF_INTERNAL,
     CONF_NAME,
 )
 import esphome.codegen as cg
@@ -79,16 +82,36 @@ DISPLAY_UNIT_OPTIONS = [
 SCHEMA = climate.climate_schema(climate.Climate).extend(
     {
         cv.Optional(CONF_NAME, default="climate"): cv.string_strict,
-        cv.GenerateID(CONF_HORIZONTAL_SWING_SELECT): cv.declare_id(SinclairACSelect),
-        cv.GenerateID(CONF_VERTICAL_SWING_SELECT): cv.declare_id(SinclairACSelect),
-        cv.GenerateID(CONF_DISPLAY_SELECT): cv.declare_id(SinclairACSelect),
-        cv.GenerateID(CONF_DISPLAY_UNIT_SELECT): cv.declare_id(SinclairACSelect),
-        cv.GenerateID(CONF_LIGHT_SWITCH): cv.declare_id(SinclairACSwitch),
-        cv.GenerateID(CONF_PLASMA_SWITCH): cv.declare_id(SinclairACSwitch),
-        cv.GenerateID(CONF_BEEPER_SWITCH): cv.declare_id(SinclairACSwitch),
-        cv.GenerateID(CONF_SLEEP_SWITCH): cv.declare_id(SinclairACSwitch),
-        cv.GenerateID(CONF_XFAN_SWITCH): cv.declare_id(SinclairACSwitch),
-        cv.GenerateID(CONF_SAVE_SWITCH): cv.declare_id(SinclairACSwitch),
+        cv.Optional(
+            CONF_HORIZONTAL_SWING_SELECT, default={}
+        ): select.select_schema(SinclairACSelect),
+        cv.Optional(
+            CONF_VERTICAL_SWING_SELECT, default={}
+        ): select.select_schema(SinclairACSelect),
+        cv.Optional(CONF_DISPLAY_SELECT, default={}): select.select_schema(
+            SinclairACSelect
+        ),
+        cv.Optional(
+            CONF_DISPLAY_UNIT_SELECT, default={}
+        ): select.select_schema(SinclairACSelect),
+        cv.Optional(CONF_LIGHT_SWITCH, default={}): switch.switch_schema(
+            SinclairACSwitch
+        ),
+        cv.Optional(CONF_PLASMA_SWITCH, default={}): switch.switch_schema(
+            SinclairACSwitch
+        ),
+        cv.Optional(CONF_BEEPER_SWITCH, default={}): switch.switch_schema(
+            SinclairACSwitch
+        ),
+        cv.Optional(CONF_SLEEP_SWITCH, default={}): switch.switch_schema(
+            SinclairACSwitch
+        ),
+        cv.Optional(CONF_XFAN_SWITCH, default={}): switch.switch_schema(
+            SinclairACSwitch
+        ),
+        cv.Optional(CONF_SAVE_SWITCH, default={}): switch.switch_schema(
+            SinclairACSwitch
+        ),
         cv.Optional(CONF_CURRENT_TEMPERATURE_SENSOR): cv.use_id(sensor.Sensor),
     }
 ).extend(uart.UART_DEVICE_SCHEMA)
@@ -109,14 +132,34 @@ async def to_code(config):
     await uart.register_uart_device(var, config)
 
     selects = [
-        (CONF_HORIZONTAL_SWING_SELECT, "hswing", HORIZONTAL_SWING_OPTIONS, "set_horizontal_swing_select"),
-        (CONF_VERTICAL_SWING_SELECT, "vswing", VERTICAL_SWING_OPTIONS, "set_vertical_swing_select"),
+        (
+            CONF_HORIZONTAL_SWING_SELECT,
+            "hswing",
+            HORIZONTAL_SWING_OPTIONS,
+            "set_horizontal_swing_select",
+        ),
+        (
+            CONF_VERTICAL_SWING_SELECT,
+            "vswing",
+            VERTICAL_SWING_OPTIONS,
+            "set_vertical_swing_select",
+        ),
         (CONF_DISPLAY_SELECT, "display_mode", DISPLAY_OPTIONS, "set_display_select"),
-        (CONF_DISPLAY_UNIT_SELECT, "display_unit", DISPLAY_UNIT_OPTIONS, "set_display_unit_select"),
+        (
+            CONF_DISPLAY_UNIT_SELECT,
+            "display_unit",
+            DISPLAY_UNIT_OPTIONS,
+            "set_display_unit_select",
+        ),
     ]
     for conf_key, name, options, setter in selects:
-        conf = {CONF_ID: config[conf_key], "name": name}
+        conf = config[conf_key]
+        conf[CONF_NAME] = name
+        conf.setdefault(CONF_DISABLED_BY_DEFAULT, False)
+        conf.setdefault(CONF_INTERNAL, False)
+        conf.setdefault(CONF_ENTITY_CATEGORY, "")
         sel_var = await select.new_select(conf, options=options)
+        await cg.register_component(sel_var, conf)
         cg.add(getattr(var, setter)(sel_var))
 
     switches = [
@@ -128,7 +171,11 @@ async def to_code(config):
         (CONF_SAVE_SWITCH, "powersave", "set_save_switch"),
     ]
     for conf_key, name, setter in switches:
-        conf = {CONF_ID: config[conf_key], "name": name}
+        conf = config[conf_key]
+        conf[CONF_NAME] = name
+        conf.setdefault(CONF_DISABLED_BY_DEFAULT, False)
+        conf.setdefault(CONF_INTERNAL, False)
+        conf.setdefault(CONF_ENTITY_CATEGORY, "")
         sw_var = cg.new_Pvariable(conf[CONF_ID])
         await cg.register_component(sw_var, conf)
         await switch.register_switch(sw_var, conf)
