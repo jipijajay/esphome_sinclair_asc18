@@ -1,6 +1,7 @@
 // based on: https://github.com/DomiStyle/esphome-panasonic-ac
 #include "gree_ac_cnt.h"
 #include "esphome/core/log.h"
+#include <cstring>
 
 namespace esphome {
 namespace gree_ac {
@@ -8,43 +9,26 @@ namespace CNT {
 
 static const char *const TAG = "gree_ac.serial";
 
+static const double TEMREC0[16] = {
+    15.5555555555556, 16.6666666666667, 17.7777777778, 18.8888888889, 20.0, 20.5555555556,
+    21.6666666667, 22.7777777778, 23.8888888889, 25.0, 25.5555555556, 26.6666666667,
+    27.7777777778, 28.8888888889, 30.0, 30.5555555556
+};
+
+static const double TEMREC1[16] = {
+    16.1111111111111, 17.2222222222222, 18.3333333333333, 19.4444444444444, 0.0, 21.1111111111,
+    22.2222222222222, 23.3333333333, 24.4444444444, 0.0, 26.1111111111111, 27.2222222222222,
+    28.3333333333, 29.4444444444, 0.0, 31.1111111111111
+};
+
+static const uint8_t ALLOWED_PACKETS[] = {protocol::CMD_IN_UNIT_REPORT};
+static const uint8_t BYTES_TO_CHECK[] = {4, 5, 6, 8, 9, 10, 11, 16, 18, 40, 42};
+
 void GreeACCNT::setup()
 {
     GreeAC::setup();
     ESP_LOGD(TAG, "Using serial protocol for Gree AC");
-    Temrec0[0] = 15.5555555555556;
-    Temrec0[1] = 16.6666666666667;
-    Temrec0[2] = 17.7777777778;
-    Temrec0[3] = 18.8888888889;
-    Temrec0[4] = 20;
-    Temrec0[5] = 20.5555555556;
-    Temrec0[6] = 21.6666666667;
-    Temrec0[7] = 22.7777777778;
-    Temrec0[8] = 23.8888888889;
-    Temrec0[9] = 25;
-    Temrec0[10] =25.5555555556;
-    Temrec0[11] = 26.6666666667;
-    Temrec0[12] = 27.7777777778;
-    Temrec0[13] = 28.8888888889;
-    Temrec0[14] = 30;
-    Temrec0[15] = 30.5555555556;
-
-    Temrec1[0] = 16.1111111111111;
-    Temrec1[1] = 17.2222222222222;
-    Temrec1[2] = 18.3333333333333;
-    Temrec1[3] = 19.4444444444444;
-    Temrec1[4] = 0; //Can'thappen
-    Temrec1[5] = 21.1111111111;
-    Temrec1[6] = 22.2222222222222;
-    Temrec1[7] = 23.3333333333;
-    Temrec1[8] = 24.4444444444;
-    Temrec1[9] = 0; //Can't happen
-    Temrec1[10] = 26.1111111111111; 
-    Temrec1[11] = 27.2222222222222;
-    Temrec1[12] = 28.3333333333;
-    Temrec1[13] = 29.4444444444;
-    Temrec1[14] = 0; //Can't happen
-    Temrec1[15] = 31.1111111111111;
+    memset(this->lastpacket, 0, sizeof(this->lastpacket));
 }
 
 void GreeACCNT::loop()
@@ -177,8 +161,6 @@ void GreeACCNT::control(const climate::ClimateCall &call)
  */
 void GreeACCNT::send_packet()
 {
-    std::vector<uint8_t> packet(protocol::SET_PACKET_LEN, 0);  /* Initialize packet contents */
-
     if (this->wait_response_)
     {
         if (millis() - this->last_packet_sent_ < protocol::TIME_WAIT_RESPONSE_TIMEOUT_MS)
@@ -198,9 +180,12 @@ void GreeACCNT::send_packet()
         /* do net send packet too often */
         return;
     }
+
+    uint8_t payload[protocol::SET_PACKET_LEN];
+    memset(payload, 0, sizeof(payload));
     
-    packet[protocol::SET_CONST_02_BYTE] = protocol::SET_CONST_02_VAL; /* Some always 0x02 byte... */
-    packet[protocol::SET_CONST_BIT_BYTE] = protocol::SET_CONST_BIT_MASK; /* Some always true bit */
+    payload[protocol::SET_CONST_02_BYTE] = protocol::SET_CONST_02_VAL; /* Some always 0x02 byte... */
+    payload[protocol::SET_CONST_BIT_BYTE] = protocol::SET_CONST_BIT_MASK; /* Some always true bit */
 
     /* Prepare the rest of the frame */
     /* this handles tricky part of 0xAF value and flag marking that WiFi does not apply any changes */
@@ -208,10 +193,10 @@ void GreeACCNT::send_packet()
     {
         default:
         case ACUpdate::NoUpdate:
-            packet[protocol::SET_NOCHANGE_BYTE] |= protocol::SET_NOCHANGE_MASK;
+            payload[protocol::SET_NOCHANGE_BYTE] |= protocol::SET_NOCHANGE_MASK;
             break;
         case ACUpdate::UpdateStart:
-            packet[protocol::SET_AF_BYTE] = protocol::SET_AF_VAL;
+            payload[protocol::SET_AF_BYTE] = protocol::SET_AF_VAL;
             break;
         case ACUpdate::UpdateClear:
             break;
@@ -267,20 +252,20 @@ void GreeACCNT::send_packet()
             break;
     }
 
-    packet[protocol::REPORT_MODE_BYTE] |= (mode << protocol::REPORT_MODE_POS);
+    payload[protocol::REPORT_MODE_BYTE] |= (mode << protocol::REPORT_MODE_POS);
     if (power)
     {
-        packet[protocol::REPORT_PWR_BYTE] |= protocol::REPORT_PWR_MASK;
+        payload[protocol::REPORT_PWR_BYTE] |= protocol::REPORT_PWR_MASK;
     }
 
     /* TARGET TEMPERATURE --------------------------------------------------------------------------- */
     uint8_t temptemp = static_cast<uint8_t>(round(this->target_temperature));
     uint8_t target_temperature = ((temptemp - protocol::REPORT_TEMP_SET_OFF) << protocol::REPORT_TEMP_SET_POS);
-    packet[protocol::REPORT_TEMP_SET_BYTE] |= (target_temperature & protocol::REPORT_TEMP_SET_MASK);
+    payload[protocol::REPORT_TEMP_SET_BYTE] |= (target_temperature & protocol::REPORT_TEMP_SET_MASK);
 
     if (this->target_temperature - (float)temptemp > 0)
     {
-         packet[protocol::REPORT_DISP_F_BYTE] |= protocol::TEMREC_MASK;
+         payload[protocol::REPORT_DISP_F_BYTE] |= protocol::TEMREC_MASK;
     }
 
     /* FAN SPEED --------------------------------------------------------------------------- */
@@ -289,7 +274,7 @@ void GreeACCNT::send_packet()
     bool    fanTurbo  = false;
     if (this->has_custom_fan_mode())
     {
-        std::string custom_fan_mode = this->get_custom_fan_mode();
+        const auto custom_fan_mode = this->get_custom_fan_mode();
         uint8_t fan_mode = 0;
 
         if (custom_fan_mode == fan_modes::FAN_AUTO)
@@ -327,16 +312,16 @@ void GreeACCNT::send_packet()
             fanQuiet  = true;
         }
 
-        packet[protocol::REPORT_FAN_SPD2_BYTE] |= (fan_mode << protocol::REPORT_FAN_SPD2_POS);
+        payload[protocol::REPORT_FAN_SPD2_BYTE] |= (fan_mode << protocol::REPORT_FAN_SPD2_POS);
     }
 
     if (fanTurbo)
     {
-        packet[protocol::REPORT_FAN_TURBO_BYTE] |= protocol::REPORT_FAN_TURBO_MASK;
+        payload[protocol::REPORT_FAN_TURBO_BYTE] |= protocol::REPORT_FAN_TURBO_MASK;
     }
     if (fanQuiet)
     {
-        packet[protocol::REPORT_FAN_QUIET_BYTE] |= protocol::REPORT_FAN_QUIET_MASK;
+        payload[protocol::REPORT_FAN_QUIET_BYTE] |= protocol::REPORT_FAN_QUIET_MASK;
     }
 
     /* VERTICAL SWING --------------------------------------------------------------------------- */
@@ -393,7 +378,7 @@ void GreeACCNT::send_packet()
     {
         mode_vertical_swing = protocol::REPORT_VSWING_OFF;
     }
-    packet[protocol::REPORT_VSWING_BYTE] |= (mode_vertical_swing << protocol::REPORT_VSWING_POS);
+    payload[protocol::REPORT_VSWING_BYTE] |= (mode_vertical_swing << protocol::REPORT_VSWING_POS);
 
     /* HORIZONTAL SWING --------------------------------------------------------------------------- */
     uint8_t mode_horizontal_swing = protocol::REPORT_HSWING_OFF;
@@ -429,7 +414,7 @@ void GreeACCNT::send_packet()
     {
         mode_horizontal_swing = protocol::REPORT_HSWING_OFF;
     }
-    packet[protocol::REPORT_HSWING_BYTE] |= (mode_horizontal_swing << protocol::REPORT_HSWING_POS);
+    payload[protocol::REPORT_HSWING_BYTE] |= (mode_horizontal_swing << protocol::REPORT_HSWING_POS);
 
     /* DISPLAY --------------------------------------------------------------------------- */
     uint8_t display_mode = protocol::REPORT_DISP_MODE_SET;
@@ -446,77 +431,76 @@ void GreeACCNT::send_packet()
         display_mode = protocol::REPORT_DISP_MODE_OUT;
     }
 
-    packet[protocol::REPORT_DISP_MODE_BYTE] |= (display_mode << protocol::REPORT_DISP_MODE_POS);
+    payload[protocol::REPORT_DISP_MODE_BYTE] |= (display_mode << protocol::REPORT_DISP_MODE_POS);
 
     if (this->light_state_)
     {
-        packet[protocol::REPORT_DISP_ON_BYTE] |= protocol::REPORT_DISP_ON_MASK;
+        payload[protocol::REPORT_DISP_ON_BYTE] |= protocol::REPORT_DISP_ON_MASK;
     }
 
     /* DISPLAY UNIT --------------------------------------------------------------------------- */
     if (this->display_unit_state_ == display_unit_options::DEGF)
     {
-        packet[protocol::REPORT_DISP_F_BYTE] |= protocol::REPORT_DISP_F_MASK;
+        payload[protocol::REPORT_DISP_F_BYTE] |= protocol::REPORT_DISP_F_MASK;
     }
 
-    /* PLASMA --------------------------------------------------------------------------- */
-    if (this->plasma_state_)
+    /* HEALTH --------------------------------------------------------------------------- */
+    if (this->health_state_)
     {
-        packet[protocol::REPORT_PLASMA1_BYTE] |= protocol::REPORT_PLASMA1_MASK;
-        packet[protocol::REPORT_PLASMA2_BYTE] |= protocol::REPORT_PLASMA2_MASK;
+        payload[protocol::REPORT_HEALTH1_BYTE] |= protocol::REPORT_HEALTH1_MASK;
+        payload[protocol::REPORT_HEALTH2_BYTE] |= protocol::REPORT_HEALTH2_MASK;
     }
 
     /* BEEPER --------------------------------------------------------------------------- */
     if (!this->beeper_state_)
     {
-        packet[protocol::REPORT_BEEPER_BYTE] |= protocol::REPORT_BEEPER_MASK;
+        payload[protocol::REPORT_BEEPER_BYTE] |= protocol::REPORT_BEEPER_MASK;
     }
 
     /* SLEEP --------------------------------------------------------------------------- */
     if (this->sleep_state_)
     {
-        packet[protocol::REPORT_SLEEP_BYTE] |= protocol::REPORT_SLEEP_MASK;
+        payload[protocol::REPORT_SLEEP_BYTE] |= protocol::REPORT_SLEEP_MASK;
     }
 
     /* XFAN --------------------------------------------------------------------------- */
     if (this->xfan_state_)
     {
-        packet[protocol::REPORT_XFAN_BYTE] |= protocol::REPORT_XFAN_MASK;
+        payload[protocol::REPORT_XFAN_BYTE] |= protocol::REPORT_XFAN_MASK;
     }
 
-    /* SAVE --------------------------------------------------------------------------- */
-    if (this->save_state_)
+    /* POWERSAVE --------------------------------------------------------------------------- */
+    if (this->powersave_state_)
     {
-        packet[protocol::REPORT_SAVE_BYTE] |= protocol::REPORT_SAVE_MASK;
+        payload[protocol::REPORT_POWERSAVE_BYTE] |= protocol::REPORT_POWERSAVE_MASK;
     }
 
     /* Do the command, length */
 
-    for (size_t i = 0; i < packet.size() && i < sizeof(lastpacket); i++)
-         lastpacket[i] = packet[i];
+    memcpy(this->lastpacket, payload, protocol::SET_PACKET_LEN);
     
-    packet.insert(packet.begin(), protocol::CMD_OUT_PARAMS_SET);
-    packet.insert(packet.begin(), protocol::SET_PACKET_LEN + 2); /* Add 2 bytes as we added a command and will add checksum */
+    uint8_t full_packet[protocol::SET_PACKET_LEN + 5];
+    full_packet[0] = protocol::SYNC;
+    full_packet[1] = protocol::SYNC;
+    full_packet[2] = protocol::SET_PACKET_LEN + 2;
+    full_packet[3] = protocol::CMD_OUT_PARAMS_SET;
+    memcpy(&full_packet[4], payload, protocol::SET_PACKET_LEN);
 
     /* Do checksum - sum of all bytes except sync and checksum itself% 0x100 
        the module would be realized by the fact that we are using uint8_t*/
     uint8_t checksum = 0;
-    for (uint8_t i = 0 ; i < packet.size() ; i++)
+    for (uint8_t i = 2 ; i < protocol::SET_PACKET_LEN + 4 ; i++)
     {
-        checksum += packet[i];
+        checksum += full_packet[i];
     }
-    packet.push_back(checksum);
-
-    /* Do SYNC bytes */
-    packet.insert(packet.begin(), protocol::SYNC);
-    packet.insert(packet.begin(), protocol::SYNC);
+    full_packet[protocol::SET_PACKET_LEN + 4] = checksum;
 
     //ESP_LOGV(TAG, "Stamp1: %lx", this->last_packet_sent_);
     this->last_packet_sent_ = millis();  /* Save the time when we sent the last packet */
     
     this->wait_response_ = true;
-    write_array(packet);                 /* Sent the packet by UART */
-    log_packet(packet, true);            /* Log uart for debug purposes */
+    write_array(full_packet, sizeof(full_packet));                 /* Sent the packet by UART */
+    log_packet(full_packet, sizeof(full_packet), true);            /* Log uart for debug purposes */
    
 
     
@@ -556,7 +540,7 @@ bool GreeACCNT::verify_packet()
 
     /* Check if this packet type sould be processed */
     bool commandAllowed = false;
-    for (uint8_t packet : allowedPackets)
+    for (uint8_t packet : ALLOWED_PACKETS)
     {
         if (this->serialProcess_.data[3] == packet)
         {
@@ -599,8 +583,7 @@ void GreeACCNT::handle_packet()
 
         // Detect if AC state differs from what we last sent (indicates remote change)
         bool remoteChanged = false;
-        const std::vector<uint8_t> bytes_to_check = {4, 5, 6, 8, 9, 10, 11, 16, 18, 40, 42};
-        for (uint8_t i : bytes_to_check)
+        for (uint8_t i : BYTES_TO_CHECK)
         {
             if (i < 45 && lastpacket[i] != this->serialProcess_.data[i]) {
                 remoteChanged = true;
@@ -647,7 +630,7 @@ bool GreeACCNT::processUnitReport()
     float newTargetTemperature = 0;
     if (Temset >= 0 && Temset <= 15)
     {
-        newTargetTemperature = Temrec ? Temrec1[Temset] : Temrec0[Temset];
+        newTargetTemperature = Temrec ? TEMREC1[Temset] : TEMREC0[Temset];
     }
 
     if (newTargetTemperature != 0 && this->target_temperature != newTargetTemperature)
@@ -666,24 +649,24 @@ bool GreeACCNT::processUnitReport()
         }
     }
 
-    std::string verticalSwing = determine_vertical_swing();
+    const char* verticalSwing = determine_vertical_swing();
     if (this->vertical_swing_state_ != verticalSwing) {
         this->update_swing_vertical(verticalSwing);
         hasChanged = true;
     }
 
-    std::string horizontalSwing = determine_horizontal_swing();
+    const char* horizontalSwing = determine_horizontal_swing();
     if (this->horizontal_swing_state_ != horizontalSwing) {
         this->update_swing_horizontal(horizontalSwing);
         hasChanged = true;
     }
 
     climate::ClimateSwingMode newSwingMode;
-    if (verticalSwing == vertical_swing_options::FULL && horizontalSwing == horizontal_swing_options::FULL)
+    if (strcmp(verticalSwing, vertical_swing_options::FULL) == 0 && strcmp(horizontalSwing, horizontal_swing_options::FULL) == 0)
         newSwingMode = climate::CLIMATE_SWING_BOTH;
-    else if (verticalSwing == vertical_swing_options::FULL)
+    else if (strcmp(verticalSwing, vertical_swing_options::FULL) == 0)
         newSwingMode = climate::CLIMATE_SWING_VERTICAL;
-    else if (horizontalSwing == horizontal_swing_options::FULL)
+    else if (strcmp(horizontalSwing, horizontal_swing_options::FULL) == 0)
         newSwingMode = climate::CLIMATE_SWING_HORIZONTAL;
     else
         newSwingMode = climate::CLIMATE_SWING_OFF;
@@ -693,7 +676,7 @@ bool GreeACCNT::processUnitReport()
         hasChanged = true;
     }
 
-    std::string display = determine_display();
+    const char* display = determine_display();
     if (this->display_state_ != display) {
         this->update_display(display);
         hasChanged = true;
@@ -705,15 +688,15 @@ bool GreeACCNT::processUnitReport()
         hasChanged = true;
     }
 
-    std::string display_unit = determine_display_unit();
+    const char* display_unit = determine_display_unit();
     if (this->display_unit_state_ != display_unit) {
         this->update_display_unit(display_unit);
         hasChanged = true;
     }
 
-    bool plasma = determine_plasma();
-    if (this->plasma_state_ != plasma) {
-        this->update_plasma(plasma);
+    bool health = determine_health();
+    if (this->health_state_ != health) {
+        this->update_health(health);
         hasChanged = true;
     }
 
@@ -735,9 +718,9 @@ bool GreeACCNT::processUnitReport()
         hasChanged = true;
     }
 
-    bool save = determine_save();
-    if (this->save_state_ != save) {
-        this->update_save(save);
+    bool powersave = determine_powersave();
+    if (this->powersave_state_ != powersave) {
+        this->update_powersave(powersave);
         hasChanged = true;
     }
 
@@ -819,7 +802,7 @@ const char* GreeACCNT::determine_fan_mode()
     }
 }
 
-std::string GreeACCNT::determine_vertical_swing()
+const char* GreeACCNT::determine_vertical_swing()
 {
     uint8_t mode = (this->serialProcess_.data[protocol::REPORT_VSWING_BYTE]  & protocol::REPORT_VSWING_MASK) >> protocol::REPORT_VSWING_POS;
 
@@ -828,6 +811,16 @@ std::string GreeACCNT::determine_vertical_swing()
             return vertical_swing_options::OFF;
         case protocol::REPORT_VSWING_FULL:
             return vertical_swing_options::FULL;
+        case protocol::REPORT_VSWING_CUP:
+            return vertical_swing_options::CUP;
+        case protocol::REPORT_VSWING_CMIDU:
+            return vertical_swing_options::CMIDU;
+        case protocol::REPORT_VSWING_CMID:
+            return vertical_swing_options::CMID;
+        case protocol::REPORT_VSWING_CMIDD:
+            return vertical_swing_options::CMIDD;
+        case protocol::REPORT_VSWING_CDOWN:
+            return vertical_swing_options::CDOWN;
         case protocol::REPORT_VSWING_DOWN:
             return vertical_swing_options::DOWN;
         case protocol::REPORT_VSWING_MIDD:
@@ -838,23 +831,13 @@ std::string GreeACCNT::determine_vertical_swing()
             return vertical_swing_options::MIDU;
         case protocol::REPORT_VSWING_UP:
             return vertical_swing_options::UP;
-        case protocol::REPORT_VSWING_CDOWN:
-            return vertical_swing_options::CDOWN;
-        case protocol::REPORT_VSWING_CMIDD:
-            return vertical_swing_options::CMIDD;
-        case protocol::REPORT_VSWING_CMID:
-            return vertical_swing_options::CMID;
-        case protocol::REPORT_VSWING_CMIDU:
-            return vertical_swing_options::CMIDU;
-        case protocol::REPORT_VSWING_CUP:
-            return vertical_swing_options::CUP;
         default:
             ESP_LOGW(TAG, "Received unknown vertical swing mode");
-            return vertical_swing_options::OFF;;
+            return vertical_swing_options::OFF;
     }
 }
 
-std::string GreeACCNT::determine_horizontal_swing()
+const char* GreeACCNT::determine_horizontal_swing()
 {
     uint8_t mode = (this->serialProcess_.data[protocol::REPORT_HSWING_BYTE]  & protocol::REPORT_HSWING_MASK) >> protocol::REPORT_HSWING_POS;
 
@@ -879,7 +862,7 @@ std::string GreeACCNT::determine_horizontal_swing()
     }
 }
 
-std::string GreeACCNT::determine_display()
+const char* GreeACCNT::determine_display()
 {
     uint8_t mode = (this->serialProcess_.data[protocol::REPORT_DISP_MODE_BYTE] & protocol::REPORT_DISP_MODE_MASK) >> protocol::REPORT_DISP_MODE_POS;
 
@@ -901,7 +884,7 @@ bool GreeACCNT::determine_light()
     return (this->serialProcess_.data[protocol::REPORT_DISP_ON_BYTE] & protocol::REPORT_DISP_ON_MASK) != 0;
 }
 
-std::string GreeACCNT::determine_display_unit()
+const char* GreeACCNT::determine_display_unit()
 {
     if (this->serialProcess_.data[protocol::REPORT_DISP_F_BYTE] & protocol::REPORT_DISP_F_MASK)
     {
@@ -913,10 +896,10 @@ std::string GreeACCNT::determine_display_unit()
     }
 }
 
-bool GreeACCNT::determine_plasma(){
-    bool plasma1 = (this->serialProcess_.data[protocol::REPORT_PLASMA1_BYTE] & protocol::REPORT_PLASMA1_MASK) != 0;
-    bool plasma2 = (this->serialProcess_.data[protocol::REPORT_PLASMA2_BYTE] & protocol::REPORT_PLASMA2_MASK) != 0;
-    return plasma1 || plasma2;
+bool GreeACCNT::determine_health(){
+    bool health1 = (this->serialProcess_.data[protocol::REPORT_HEALTH1_BYTE] & protocol::REPORT_HEALTH1_MASK) != 0;
+    bool health2 = (this->serialProcess_.data[protocol::REPORT_HEALTH2_BYTE] & protocol::REPORT_HEALTH2_MASK) != 0;
+    return health1 || health2;
 }
 
 bool GreeACCNT::determine_beeper(){
@@ -931,8 +914,8 @@ bool GreeACCNT::determine_xfan(){
     return (this->serialProcess_.data[protocol::REPORT_XFAN_BYTE] & protocol::REPORT_XFAN_MASK) != 0;
 }
 
-bool GreeACCNT::determine_save(){
-    return (this->serialProcess_.data[protocol::REPORT_SAVE_BYTE] & protocol::REPORT_SAVE_MASK) != 0;
+bool GreeACCNT::determine_powersave(){
+    return (this->serialProcess_.data[protocol::REPORT_POWERSAVE_BYTE] & protocol::REPORT_POWERSAVE_MASK) != 0;
 }
 
 
@@ -995,15 +978,15 @@ void GreeACCNT::on_light_change(bool light)
     this->light_state_ = light;
 }
 
-void GreeACCNT::on_plasma_change(bool plasma)
+void GreeACCNT::on_health_change(bool health)
 {
     if (this->state_ != ACState::Ready)
         return;
 
-    ESP_LOGD(TAG, "Setting plasma");
+    ESP_LOGD(TAG, "Setting health");
 
     this->update_ = ACUpdate::UpdateStart;
-    this->plasma_state_ = plasma;
+    this->health_state_ = health;
 }
 
 void GreeACCNT::on_beeper_change(bool beeper)
@@ -1039,15 +1022,15 @@ void GreeACCNT::on_xfan_change(bool xfan)
     this->xfan_state_ = xfan;
 }
 
-void GreeACCNT::on_save_change(bool save)
+void GreeACCNT::on_powersave_change(bool powersave)
 {
     if (this->state_ != ACState::Ready)
         return;
 
-    ESP_LOGD(TAG, "Setting save");
+    ESP_LOGD(TAG, "Setting powersave");
 
     this->update_ = ACUpdate::UpdateStart;
-    this->save_state_ = save;
+    this->powersave_state_ = powersave;
 }
 
 }  // namespace CNT

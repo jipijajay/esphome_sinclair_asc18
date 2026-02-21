@@ -12,15 +12,6 @@ namespace esphome {
 
 namespace gree_ac {
 
-static const char *const VERSION = "0.0.1";
-
-static const uint16_t READ_TIMEOUT = 100;  // The maximum time to wait before considering a packet complete
-
-static const uint8_t MIN_TEMPERATURE = 16;   // Minimum temperature as reported by EWPE SMART APP
-static const uint8_t MAX_TEMPERATURE = 30;   // Maximum temperature as supported by EWPE SMART APP
-static const float TEMPERATURE_STEP = 1.0;   // Steps the temperature can be set in
-static const float TEMPERATURE_TOLERANCE = 2;  // The tolerance to allow when checking the climate state
-static const uint8_t TEMPERATURE_THRESHOLD = 100;  // Maximum temperature the AC can report (formally 119.5 for gree protocol, but 100 is impossible, soo...)
 
 namespace fan_modes{
     const char* const FAN_AUTO  = "Auto";
@@ -35,42 +26,42 @@ namespace fan_modes{
 
 /* this must be same as HORIZONTAL_SWING_OPTIONS in climate.py */
 namespace horizontal_swing_options{
-    const std::string OFF    = "0 - OFF";
-    const std::string FULL   = "1 - Swing - Full";
-    const std::string CLEFT  = "2 - Constant - Left";
-    const std::string CMIDL  = "3 - Constant - Mid-Left";
-    const std::string CMID   = "4 - Constant - Middle";
-    const std::string CMIDR  = "5 - Constant - Mid-Right";
-    const std::string CRIGHT = "6 - Constant - Right";
+    const char* const OFF    = "0 - OFF";
+    const char* const FULL   = "1 - Swing - Full";
+    const char* const CLEFT  = "2 - Constant - Left";
+    const char* const CMIDL  = "3 - Constant - Mid-Left";
+    const char* const CMID   = "4 - Constant - Middle";
+    const char* const CMIDR  = "5 - Constant - Mid-Right";
+    const char* const CRIGHT = "6 - Constant - Right";
 }
 
 /* this must be same as VERTICAL_SWING_OPTIONS in climate.py */
 namespace vertical_swing_options{
-    const std::string OFF   = "00 - OFF";
-    const std::string FULL  = "01 - Swing - Full";
-    const std::string DOWN  = "02 - Swing - Down";
-    const std::string MIDD  = "03 - Swing - Mid-Down";
-    const std::string MID   = "04 - Swing - Middle";
-    const std::string MIDU  = "05 - Swing - Mid-Up";
-    const std::string UP    = "06 - Swing - Up";
-    const std::string CDOWN = "07 - Constant - Down";
-    const std::string CMIDD = "08 - Constant - Mid-Down";
-    const std::string CMID  = "09 - Constant - Middle";
-    const std::string CMIDU = "10 - Constant - Mid-Up";
-    const std::string CUP   = "11 - Constant - Up";
+    const char* const OFF   = "00 - OFF";
+    const char* const FULL  = "01 - Swing - Full";
+    const char* const DOWN  = "02 - Swing - Down";
+    const char* const MIDD  = "03 - Swing - Mid-Down";
+    const char* const MID   = "04 - Swing - Middle";
+    const char* const MIDU  = "05 - Swing - Mid-Up";
+    const char* const UP    = "06 - Swing - Up";
+    const char* const CDOWN = "07 - Constant - Down";
+    const char* const CMIDD = "08 - Constant - Mid-Down";
+    const char* const CMID  = "09 - Constant - Middle";
+    const char* const CMIDU = "10 - Constant - Mid-Up";
+    const char* const CUP   = "11 - Constant - Up";
 }
 
 /* this must be same as DISPLAY_OPTIONS in climate.py */
 namespace display_options{
-    const std::string SET  = "2 - Set temperature";
-    const std::string ACT  = "3 - Actual temperature";
-    const std::string OUT  = "4 - Outside temperature";
+    const char* const SET  = "2 - Set temperature";
+    const char* const ACT  = "3 - Actual temperature";
+    const char* const OUT  = "4 - Outside temperature";
 }
 
 /* this must be same as DISPLAY_UNIT_OPTIONS in climate.py */
 namespace display_unit_options{
-    const std::string DEGC = "C";
-    const std::string DEGF = "F";
+    const char* const DEGC = "C";
+    const char* const DEGF = "F";
 }
 
 typedef enum {
@@ -79,8 +70,6 @@ typedef enum {
         STATE_COMPLETE,
         STATE_RESTART
 } SerialProcessState_t;
-
-static const uint8_t DATA_MAX = 200;
 
 typedef struct {
   std::vector<uint8_t> data;
@@ -98,11 +87,11 @@ class GreeAC : public Component, public uart::UARTDevice, public climate::Climat
         void set_display_unit_select(select::Select *display_unit_select);
 
         void set_light_switch(switch_::Switch *light_switch);
-        void set_plasma_switch(switch_::Switch *plasma_switch);
+        void set_health_switch(switch_::Switch *health_switch);
         void set_beeper_switch(switch_::Switch *beeper_switch);
         void set_sleep_switch(switch_::Switch *sleep_switch);
-        void set_xfan_switch(switch_::Switch *plasma_switch);
-        void set_save_switch(switch_::Switch *plasma_switch);
+        void set_xfan_switch(switch_::Switch *xfan_switch);
+        void set_powersave_switch(switch_::Switch *powersave_switch);
 
         void set_current_temperature_sensor(sensor::Sensor *current_temperature_sensor);
 
@@ -118,11 +107,11 @@ class GreeAC : public Component, public uart::UARTDevice, public climate::Climat
         select::Select *display_unit_select_     = nullptr; /* Select for setting display temperature unit */
 
         switch_::Switch *light_switch_           = nullptr; /* Switch for light */
-        switch_::Switch *plasma_switch_          = nullptr; /* Switch for plasma */
+        switch_::Switch *health_switch_          = nullptr; /* Switch for health */
         switch_::Switch *beeper_switch_          = nullptr; /* Switch for beeper */
         switch_::Switch *sleep_switch_           = nullptr; /* Switch for sleep */
         switch_::Switch *xfan_switch_            = nullptr; /* Switch for X-fan */
-        switch_::Switch *save_switch_            = nullptr; /* Switch for save */
+        switch_::Switch *powersave_switch_       = nullptr; /* Switch for powersave */
 
         sensor::Sensor *current_temperature_sensor_ = nullptr; /* If user wants to replace reported temperature by an external sensor readout */
 
@@ -133,16 +122,13 @@ class GreeAC : public Component, public uart::UARTDevice, public climate::Climat
         std::string display_unit_state_;
 
         bool light_state_;
-        bool plasma_state_;
+        bool health_state_;
         bool beeper_state_;
         bool sleep_state_;
         bool xfan_state_;
-        bool save_state_;
+        bool powersave_state_;
 
         SerialProcess_t serialProcess_;
-
-        float Temrec0 [16];
-        float Temrec1 [16];
 
         uint32_t init_time_;   // Stores the current time
         // uint32_t last_read_;   // Stores the time at which the last read was done
@@ -165,11 +151,11 @@ class GreeAC : public Component, public uart::UARTDevice, public climate::Climat
         void update_display_unit(const std::string &display_unit);
 
         void update_light(bool light);
-        void update_plasma(bool plasma);
+        void update_health(bool health);
         void update_beeper(bool beeper);
         void update_sleep(bool sleep);
         void update_xfan(bool xfan);
-        void update_save(bool save);
+        void update_powersave(bool powersave);
 
         virtual void on_horizontal_swing_change(const std::string &swing) = 0;
         virtual void on_vertical_swing_change(const std::string &swing) = 0;
@@ -178,15 +164,26 @@ class GreeAC : public Component, public uart::UARTDevice, public climate::Climat
         virtual void on_display_unit_change(const std::string &display_unit) = 0;
 
         virtual void on_light_change(bool light) = 0;
-        virtual void on_plasma_change(bool plasma) = 0;
+        virtual void on_health_change(bool health) = 0;
         virtual void on_beeper_change(bool beeper) = 0;
         virtual void on_sleep_change(bool sleep) = 0;
         virtual void on_xfan_change(bool xfan) = 0;
-        virtual void on_save_change(bool save) = 0;
+        virtual void on_powersave_change(bool powersave) = 0;
 
         climate::ClimateAction determine_action();
 
-        void log_packet(std::vector<uint8_t> data, bool outgoing = false);
+        void log_packet(const uint8_t *data, size_t len, bool outgoing = false);
+        void log_packet(const std::vector<uint8_t> &data, bool outgoing = false);
+
+    protected:
+        static const char *const VERSION;
+        static const uint16_t READ_TIMEOUT;
+        static const uint8_t MIN_TEMPERATURE;
+        static const uint8_t MAX_TEMPERATURE;
+        static const float TEMPERATURE_STEP;
+        static const float TEMPERATURE_TOLERANCE;
+        static const uint8_t TEMPERATURE_THRESHOLD;
+        static const uint8_t DATA_MAX;
 };
 
 }  // namespace gree_ac
