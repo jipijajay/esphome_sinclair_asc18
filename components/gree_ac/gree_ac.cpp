@@ -385,12 +385,10 @@ void GreeAC::set_powersave_switch(switch_::Switch *powersave_switch)
 void GreeAC::log_packet(const uint8_t *data, size_t len, bool outgoing)
 {
 #if ESPHOME_LOG_LEVEL >= ESPHOME_LOG_LEVEL_VERBOSE
-    if (esp_log_level_enabled(ESPHOME_LOG_LEVEL_VERBOSE, TAG)) {
-        if (outgoing) {
-            ESP_LOGV(TAG, "TX: %s", format_hex_pretty(data, len).c_str());
-        } else {
-            ESP_LOGV(TAG, "RX: %s", format_hex_pretty(data, len).c_str());
-        }
+    if (outgoing) {
+        ESP_LOGV(TAG, "TX: %s", format_hex_pretty(data, len).c_str());
+    } else {
+        ESP_LOGV(TAG, "RX: %s", format_hex_pretty(data, len).c_str());
     }
 #endif
 }
