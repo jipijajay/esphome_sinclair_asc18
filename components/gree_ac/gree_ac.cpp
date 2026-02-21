@@ -35,6 +35,7 @@ void GreeAC::setup()
     this->last_packet_sent_ = millis();
     this->serialProcess_.state = STATE_WAIT_SYNC;
     this->serialProcess_.last_byte_time = millis();
+    this->serialProcess_.data.reserve(DATA_MAX);
 
     ESP_LOGI(TAG, "Gree AC component v%s starting...", VERSION);
 }
@@ -381,13 +382,22 @@ void GreeAC::set_powersave_switch(switch_::Switch *powersave_switch)
  * Debugging
  */
 
-void GreeAC::log_packet(std::vector<uint8_t> data, bool outgoing)
+void GreeAC::log_packet(const uint8_t *data, size_t len, bool outgoing)
 {
-    if (outgoing) {
-        ESP_LOGV(TAG, "TX: %s", format_hex_pretty(data).c_str());
-    } else {
-        ESP_LOGV(TAG, "RX: %s", format_hex_pretty(data).c_str());
+#if ESPHOME_LOG_LEVEL >= ESPHOME_LOG_LEVEL_VERBOSE
+    if (esp_log_level_enabled(ESPHOME_LOG_LEVEL_VERBOSE, TAG)) {
+        if (outgoing) {
+            ESP_LOGV(TAG, "TX: %s", format_hex_pretty(data, len).c_str());
+        } else {
+            ESP_LOGV(TAG, "RX: %s", format_hex_pretty(data, len).c_str());
+        }
     }
+#endif
+}
+
+void GreeAC::log_packet(const std::vector<uint8_t> &data, bool outgoing)
+{
+    log_packet(data.data(), data.size(), outgoing);
 }
 
 }  // namespace gree_ac
