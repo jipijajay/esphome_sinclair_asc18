@@ -147,9 +147,6 @@ namespace protocol {
     static const unsigned long TIME_WAIT_RESPONSE_TIMEOUT_MS = 1000;
 }
 
-/* Define packets from AC that would be processed by software */
-const std::vector<uint8_t> allowedPackets = {protocol::CMD_IN_UNIT_REPORT};
-
 class GreeACCNT : public GreeAC {
     public:
         void control(const climate::ClimateCall &call) override;
@@ -193,11 +190,11 @@ class GreeACCNT : public GreeAC {
         climate::ClimateMode determine_mode();
         const char* determine_fan_mode();
 
-        std::string determine_vertical_swing();
-        std::string determine_horizontal_swing();
+        const char* determine_vertical_swing();
+        const char* determine_horizontal_swing();
 
-        std::string determine_display();
-        std::string determine_display_unit();
+        const char* determine_display();
+        const char* determine_display_unit();
 
         bool determine_light();
         bool determine_health();
