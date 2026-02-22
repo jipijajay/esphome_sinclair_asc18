@@ -1,3 +1,25 @@
+modified:
+# Sinclair ASC-18 ESPHome Component (ESP8266 / UART0 GPIO1/3)
+
+Diese Komponente implementiert die UART-Kommunikation für die Sinclair ASC-18
+(Type C UART Protokoll).
+
+## Hardware
+
+- ESP8266 (ESP-01 / ESP-01S / Tuya)
+- UART0:
+  - TX = GPIO1
+  - RX = GPIO3
+
+## Installation
+
+1. Repo forken
+2. In ESPHome YAML:
+
+external_components:
+  - source: github://DEIN_USER/esphome_sinclair_asc18
+
+ORIGINAL:
 # Open source WIFI module replacement for Gree protocol based AC's for Home Assistant.
 This repository adds support for ESP-based WiFi modules to interface with Gree/Gree AC units.
 It's forked from https://github.com/piotrva/esphome_gree_ac, big thanks to @piotrva for his work!
