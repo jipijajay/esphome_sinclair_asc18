@@ -19,6 +19,7 @@ Diese Komponente implementiert die UART-Kommunikation für die Sinclair ASC-18
 external_components:
   - source: github://DEIN_USER/esphome_sinclair_asc18
 
+
 ORIGINAL:
 # Open source WIFI module replacement for Gree protocol based AC's for Home Assistant.
 This repository adds support for ESP-based WiFi modules to interface with Gree/Gree AC units.
