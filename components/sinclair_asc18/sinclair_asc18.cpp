@@ -18,6 +18,7 @@ climate::ClimateTraits SinclairASC18Climate::traits() {
   traits.set_supports_action(false);
 
   traits.set_supported_modes({
+      climate::CLIMATE_MODE_OFF,
       climate::CLIMATE_MODE_AUTO,
       climate::CLIMATE_MODE_COOL,
       climate::CLIMATE_MODE_HEAT,
@@ -27,13 +28,11 @@ climate::ClimateTraits SinclairASC18Climate::traits() {
 
   traits.set_supported_fan_modes({
       climate::CLIMATE_FAN_AUTO,
-      climate::CLIMATE_FAN_LOW,   // low
-      climate::CLIMATE_FAN_MEDIUM, // mid
-      climate::CLIMATE_FAN_HIGH,  // high
+      climate::CLIMATE_FAN_LOW,     // low
+      climate::CLIMATE_FAN_MEDIUM,  // mid
+      climate::CLIMATE_FAN_HIGH,    // high/turbo (feineres Mapping später)
   });
 
-  // Wir nutzen benutzerdefinierte Fan-Labels über state-Feld (siehe Home Assistant),
-  // aber für ESPHome bleiben wir bei den Standard-Fan-Modes.
   traits.set_visual_min_temperature(16);
   traits.set_visual_max_temperature(30);
   traits.set_visual_temperature_step(1.0f);
@@ -56,7 +55,6 @@ void SinclairASC18Climate::control(const climate::ClimateCall &call) {
     this->target_temperature = *call.get_target_temperature();
   }
 
-  // Power-Flag aus Mode ableiten (OFF vs. andere)
   this->power_ = (this->mode_ != climate::CLIMATE_MODE_OFF);
 
   this->send_state_to_ac_();
@@ -64,33 +62,27 @@ void SinclairASC18Climate::control(const climate::ClimateCall &call) {
 }
 
 void SinclairASC18Climate::loop() {
-  // Eingehende Frames lesen (noch rudimentär)
-  while (this->available() >= 2) {
+  this->handle_incoming_();
+}
+
+void SinclairASC18Climate::handle_incoming_() {
+  // Platzhalter: hier kannst du später dein vollständiges Frame-Parsing einbauen.
+  while (this->available()) {
     uint8_t b = this->read();
     if (b == 0x7E) {
-      // Start-Byte erkannt, restliche Bytes könnten folgen
-      // Hier könntest du später dein vollständiges Frame-Parsing einbauen
-      ESP_LOGV(TAG, "Got 0x7E byte from AC");
+      ESP_LOGV(TAG, "Got 0x7E from AC (frame boundary)");
     }
   }
 }
 
 void SinclairASC18Climate::send_state_to_ac_() {
-  // HINWEIS:
-  // Hier gehört deine vollständige Frame-Generierung rein.
-  // Im Moment senden wir nur ein Dummy-Frame, damit die Struktur steht.
+  // Aktuell: Dummy-Frame, damit alles kompiliert und UART aktiv ist.
+  // Später: hier deine echte Frame-Struktur aus den Dumps nachbauen.
 
   uint8_t frame[8];
 
-  // Sehr vereinfachtes Beispiel-Layout:
-  // [0] = Header
-  // [1] = Mode
-  // [2] = Fan
-  // [3] = Target Temp
-  // [4..6] = reserviert
-  // [7] = einfache Checksumme
+  frame[0] = 0x20;  // Dummy-Header
 
-  frame[0] = 0x20;  // Dummy
   // Mode-Mapping (nur Beispiel!)
   switch (this->mode_) {
     case climate::CLIMATE_MODE_COOL:
@@ -106,32 +98,34 @@ void SinclairASC18Climate::send_state_to_ac_() {
       frame[1] = 0x04;
       break;
     case climate::CLIMATE_MODE_AUTO:
-    default:
       frame[1] = 0x00;
+      break;
+    case climate::CLIMATE_MODE_OFF:
+    default:
+      frame[1] = 0x10;  // z.B. Power-Off-Flag – später anpassen
       break;
   }
 
   // Fan-Mapping (Auto, Low, Mid Low, Mid, Mid High, High, Turbo)
-  // Hier nur grob auf 0..6 gemappt – du kannst das später exakt an deine Bytes anpassen.
+  // Hier grob auf 0..6 – später mit deinen Logs exakt mappen.
   uint8_t fan_code = 0x00;
   switch (this->fan_mode_) {
     case climate::CLIMATE_FAN_LOW:
-      fan_code = 0x01;  // low
+      fan_code = 0x01;
       break;
     case climate::CLIMATE_FAN_MEDIUM:
-      fan_code = 0x03;  // mid
+      fan_code = 0x03;
       break;
     case climate::CLIMATE_FAN_HIGH:
-      fan_code = 0x05;  // high
+      fan_code = 0x05;
       break;
     case climate::CLIMATE_FAN_AUTO:
     default:
-      fan_code = 0x00;  // auto
+      fan_code = 0x00;
       break;
   }
   frame[2] = fan_code;
 
-  // Temperatur (z.B. direkt in °C)
   uint8_t temp = static_cast<uint8_t>(this->target_temperature);
   frame[3] = temp;
 
@@ -145,7 +139,7 @@ void SinclairASC18Climate::send_state_to_ac_() {
   }
   frame[7] = sum;
 
-  ESP_LOGD(TAG, "Sending dummy frame to AC: mode=%d fan=%d temp=%d",
+  ESP_LOGD(TAG, "Sending dummy frame: mode=%d fan=%d temp=%d",
            this->mode_, this->fan_mode_, temp);
 
   this->write_array(frame, sizeof(frame));
