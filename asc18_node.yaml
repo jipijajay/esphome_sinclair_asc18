@@ -1,16 +1,41 @@
-esphome:
-  name: asc18-node
-  platform: ESP32
-  board: esp32dev
+substitutions:
+  node_name: Gree AC # Use a unique name.
+  node_id: Gree_ac    # Use a unique id.
+  friendly_node_name: "Gree AC"
+  deviceid: gree
+  devicename: FlurOG
 
+esphome:
+#  name: asc18-node
+  name: "sinclair-ac"
+  friendly_name: "Gree AC"
+
+esp8266:
+  board: esp01_1m
+
+# Enable logging
 logger:
+  baud_rate: 0 # disable LOG output on UART as UART is used for Gree AC unit
   level: DEBUG
 
+# Enable Home Assistant API
 api:
+  encryption:
+    key: !secret gree_key
+
 ota:
+  - platform: esphome
+    password: !secret gree_otapw
+
 wifi:
-  ssid: "DEIN_SSID"
-  password: "DEIN_PASSWORT"
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  min_auth_mode: WPA2
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Gree Fallback Hotspot"
+    password:  !secret appw
 
 uart:
   id: asc18_uart
@@ -18,7 +43,9 @@ uart:
   rx_pin: 3
   baud_rate: 9600
   parity: EVEN
-  stop_bits: 1
+
+time:
+  - platform: sntp
 
 # Custom-Component einbinden
 external_components:
@@ -30,6 +57,7 @@ climate:
       auto ac = new esphome::sinclair_asc18::SinclairAsc18Climate(id(asc18_uart));
       return {ac};
     climates:
-      - name: "Sinclair ASC-18"
+      - name: ${devicename}
+
 
 
