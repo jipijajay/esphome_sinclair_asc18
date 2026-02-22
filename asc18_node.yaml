@@ -22,9 +22,7 @@ uart:
 
 # Custom-Component einbinden
 external_components:
-  - source:
-      type: local
-      path: ./components
+  - source: github://jipijajay/esphome_sinclair_asc18
 
 climate:
   - platform: custom
@@ -33,3 +31,4 @@ climate:
       return {ac};
     climates:
       - name: "Sinclair ASC-18"
+
