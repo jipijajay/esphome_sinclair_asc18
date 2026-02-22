@@ -1,0 +1,35 @@
+esphome:
+  name: asc18-node
+  platform: ESP32
+  board: esp32dev
+
+logger:
+  level: DEBUG
+
+api:
+ota:
+wifi:
+  ssid: "DEIN_SSID"
+  password: "DEIN_PASSWORT"
+
+uart:
+  id: asc18_uart
+  tx_pin: GPIO17
+  rx_pin: GPIO16
+  baud_rate: 9600
+  parity: NONE
+  stop_bits: 1
+
+# Custom-Component einbinden
+external_components:
+  - source:
+      type: local
+      path: ./components
+
+climate:
+  - platform: custom
+    lambda: |-
+      auto ac = new esphome::sinclair_asc18::SinclairAsc18Climate(id(asc18_uart));
+      return {ac};
+    climates:
+      - name: "Sinclair ASC-18"
