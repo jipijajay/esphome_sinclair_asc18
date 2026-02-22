@@ -1,1 +1,1 @@
-# empty file required for ESPHome custom component namespace
+# empty file, required so ESPHome treats this as a Python package
