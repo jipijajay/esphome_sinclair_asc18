@@ -10,7 +10,7 @@ namespace CNT {
 static const char *const TAG = "gree_ac.serial";
 
 static const uint8_t ALLOWED_PACKETS[] = {protocol::CMD_IN_UNIT_REPORT};
-static const uint8_t BYTES_TO_CHECK[] = {4, 5, 6, 8, 9, 10, 11, 16, 18, 40, 42};
+static const uint8_t BYTES_TO_CHECK[] = {4, 5, 6, 8, 9, 11, 16, 18, 40};
 
 void GreeACCNT::setup()
 {
@@ -574,9 +574,17 @@ void GreeACCNT::handle_packet()
         bool remoteChanged = false;
         for (uint8_t i : BYTES_TO_CHECK)
         {
-            if (i < 45 && lastpacket[i] != this->serialProcess_.data[i]) {
-                remoteChanged = true;
-                break;
+            if (i < 45) {
+                uint8_t last = lastpacket[i];
+                uint8_t current = this->serialProcess_.data[i];
+                if (i == protocol::SET_NOCHANGE_BYTE) {
+                    last &= ~protocol::SET_NOCHANGE_MASK;
+                    current &= ~protocol::SET_NOCHANGE_MASK;
+                }
+                if (last != current) {
+                    remoteChanged = true;
+                    break;
+                }
             }
         }
 
