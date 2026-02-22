@@ -14,10 +14,10 @@ wifi:
 
 uart:
   id: asc18_uart
-  tx_pin: GPIO17
-  rx_pin: GPIO16
+  tx_pin: 1
+  rx_pin: 3
   baud_rate: 9600
-  parity: NONE
+  parity: EVEN
   stop_bits: 1
 
 # Custom-Component einbinden
@@ -31,4 +31,5 @@ climate:
       return {ac};
     climates:
       - name: "Sinclair ASC-18"
+
 
