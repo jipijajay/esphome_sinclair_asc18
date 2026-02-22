@@ -22,7 +22,6 @@ class SinclairASC18Climate : public climate::Climate,
   void send_state_to_ac_();
   void handle_incoming_();
 
-  // internal state mirror
   bool power_{true};
   climate::ClimateMode mode_{climate::CLIMATE_MODE_COOL};
   climate::ClimateFanMode fan_mode_{climate::CLIMATE_FAN_AUTO};
