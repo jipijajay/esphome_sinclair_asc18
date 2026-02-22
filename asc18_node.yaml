@@ -60,8 +60,10 @@ external_components:
 
 climate:
   - platform: sinclair_asc18
-    name:  ${devicename}
-    uart_id: asc18_uart
+#    name:  ${devicename}
+    name: "Sinclair ASC-18"
+    uart_id: ac_uart
+
 
 
 
