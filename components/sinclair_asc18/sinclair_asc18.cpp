@@ -4,7 +4,7 @@
 namespace esphome {
 namespace sinclair_asc18 {
 
-static const char *const TAG = "sinclair_asc18";
+static const char *const TAG = "sinclair_asc18.climate";
 
 void SinclairASC18Climate::setup() {
   ESP_LOGI(TAG, "Sinclair ASC-18 climate setup");
@@ -147,4 +147,5 @@ void SinclairASC18Climate::send_state_to_ac_() {
 
 }  // namespace sinclair_asc18
 }  // namespace esphome
+
 
